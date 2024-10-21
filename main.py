@@ -2,25 +2,29 @@ import streamlit as st
 import os
 import requests
 from pocketgroq import GroqProvider
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
-if 'api_key' not in st.session_state:
-    st.session_state.api_key = ''
 if 'available_models' not in st.session_state:
     st.session_state.available_models = []
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = "llama2-70b-4096"  # Default model
 
+# Get API key from environment variable
+api_key = os.getenv('GROQ_API_KEY')
+
 def get_groq_provider():
-    if not st.session_state.api_key:
-        st.error("Please enter your Groq API key.")
+    if not api_key:
+        st.error("GROQ_API_KEY not found in .env file.")
         return None
-    return GroqProvider(api_key=st.session_state.api_key)
+    return GroqProvider(api_key=api_key)
 
 def fetch_available_models():
-    api_key = st.session_state.api_key
     url = "https://api.groq.com/openai/v1/models"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -46,11 +50,9 @@ def generate_response(prompt: str, use_cot: bool, model: str) -> str:
     full_prompt = f"{history}\nUser: {prompt}"
     
     if use_cot:
-        cot_prompt = f"Solve the following problem step by step, showing your reasoning:\n\n{prompt}\n\nSolution:"
         cot_prompt = f"Solve the following problem step by step, showing your reasoning:\n\n{full_prompt}\n\nSolution:"
         return groq.generate(cot_prompt, max_tokens=1000, temperature=0, model=model)
     else:
-        return groq.generate(prompt, temperature=0, model=model)
         return groq.generate(full_prompt, temperature=0, model=model)
 
 def on_model_change():
@@ -61,11 +63,12 @@ def main():
     st.write("This is a simple demo of the PocketGroq library's new 'Chain of Thought' functionality.")
     st.write("<a href='https://github.com/jgravelle/pocketgroq'>https://github.com/jgravelle/pocketgroq</a> |    <a href='https://www.youtube.com/watch?v=S5dY0DG-q-U'>https://www.youtube.com/watch?v=S5dY0DG-q-U</a>", unsafe_allow_html=True)
 
-    # API Key input
-    api_key = st.text_input("Enter your Groq API Key:", type="password")
-    if api_key:
-        st.session_state.api_key = api_key
-        fetch_available_models()
+    if not api_key:
+        st.error("GROQ_API_KEY not found in .env file. Please add it and restart the application.")
+        return
+
+    # Fetch available models
+    fetch_available_models()
 
     # Model selection
     if st.session_state.available_models:
@@ -103,5 +106,4 @@ def main():
         st.session_state.messages.append({"role": "assistant", "content": response})
 
 if __name__ == "__main__":
-    main()
     main()
